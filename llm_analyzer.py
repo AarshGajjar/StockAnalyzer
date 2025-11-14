@@ -124,12 +124,13 @@ def get_gemini_models(api_key):
         raise Exception(f"Failed to fetch Gemini models: {str(e)}")
 
 
-def get_ollama_models():
+def get_ollama_models(ollama_host=None):
     """Fetch available Ollama models"""
     if not OLLAMA_AVAILABLE:
         return []
     try:
-        response = ollama.list()
+        client = ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
+        response = client.list()
         
         # Handle different response structures
         if isinstance(response, dict):
@@ -186,7 +187,10 @@ def test_provider_connection(provider_config):
         
         elif provider == 'ollama':
             # Test with a simple chat
-            test_response = ollama.chat(
+            ollama_host = provider_config.get('ollama_host')
+            client = ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
+            
+            test_response = client.chat(
                 model=provider_config.get('ollama_model', 'llama2'),
                 messages=[{"role": "user", "content": "Say test"}]
             )
@@ -237,13 +241,16 @@ def initialize_providers(provider_config):
     # Initialize Ollama
     elif provider_config.get('provider') == 'ollama':
         ollama_model = provider_config.get('ollama_model', 'llama2')
+        ollama_host = provider_config.get('ollama_host')
         if not OLLAMA_AVAILABLE:
             raise Exception("Ollama library not installed. Run: pip install ollama")
-        # Test if Ollama is running
+        
         try:
-            ollama.list()  # Test connection
+            # Initialize client with host if provided
+            client = ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
+            client.list()  # Test connection
         except Exception as e:
-            raise Exception(f"Ollama is not running or not accessible: {e}")
+            raise Exception(f"Ollama is not running or not accessible at {ollama_host or 'default host'}: {e}")
 
 
 def _get_provider(provider_config=None):
@@ -446,14 +453,15 @@ Data Sources: {', '.join(data_sources) if data_sources else 'N/A'}
                 return _analyze_with_gemini(user_prompt)
         elif provider == "ollama":
             model_name = provider_config.get('ollama_model') if provider_config else None
+            ollama_host = provider_config.get('ollama_host') if provider_config else None
             if stream:
-                stream_gen = _analyze_with_ollama(user_prompt, model_name, stream=True)
+                stream_gen = _analyze_with_ollama(user_prompt, model_name, ollama_host, stream=True)
                 for chunk in stream_gen:
                     if chunk.get('message', {}).get('content'):
                         yield chunk['message']['content']
                 return
             else:
-                return _analyze_with_ollama(user_prompt, model_name, stream=False)
+                return _analyze_with_ollama(user_prompt, model_name, ollama_host, stream=False)
         
     except Exception as e:
         error_msg = f"Error analyzing stock: {str(e)}\n\n{_simple_analysis(stock_data, user_question)}"
@@ -516,13 +524,14 @@ def _analyze_with_gemini(user_prompt):
         raise e
 
 
-def _analyze_with_ollama(user_prompt, model_name=None, stream=False):
+def _analyze_with_ollama(user_prompt, model_name=None, ollama_host=None, stream=False):
     """Analyze using Ollama (local LLM)"""
     model = model_name or ollama_model
+    client = ollama.Client(host=ollama_host) if ollama_host else ollama.Client()
     
     if stream:
         # Ollama supports streaming
-        stream_response = ollama.chat(
+        stream_response = client.chat(
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -532,7 +541,7 @@ def _analyze_with_ollama(user_prompt, model_name=None, stream=False):
         )
         return stream_response
     else:
-        response = ollama.chat(
+        response = client.chat(
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},

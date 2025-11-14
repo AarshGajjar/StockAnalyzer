@@ -70,6 +70,8 @@ if 'gemini_model' not in st.session_state:
     st.session_state.gemini_model = "gemini-1.5-flash"
 if 'ollama_model' not in st.session_state:
     st.session_state.ollama_model = "llama2"
+if 'ollama_host' not in st.session_state:
+    st.session_state.ollama_host = ""
 if 'openai_models' not in st.session_state:
     st.session_state.openai_models = []
 if 'gemini_models' not in st.session_state:
@@ -358,10 +360,20 @@ with st.sidebar:
                 }
         
         elif st.session_state.llm_provider == "ollama":
+            new_host = st.text_input(
+                "Ollama Host (optional)",
+                value=st.session_state.ollama_host,
+                placeholder="http://localhost:11434",
+                key="ollama_host_input"
+            )
+            if new_host != st.session_state.ollama_host:
+                st.session_state.ollama_models = []
+            st.session_state.ollama_host = new_host
+
             if not st.session_state.ollama_models:
                 with st.spinner("Fetching models..."):
                     try:
-                        models = get_ollama_models()
+                        models = get_ollama_models(st.session_state.ollama_host or None)
                         st.session_state.ollama_models = models
                     except Exception as e:
                         st.error(f"Error: {e}")
@@ -394,7 +406,8 @@ with st.sidebar:
             
             provider_config = {
                 'provider': 'ollama',
-                'ollama_model': st.session_state.ollama_model
+                'ollama_model': st.session_state.ollama_model,
+                'ollama_host': st.session_state.ollama_host
             }
         
         if st.session_state.llm_provider and provider_config:
@@ -509,7 +522,8 @@ if st.session_state.comparison_data:
                 elif st.session_state.llm_provider == "ollama":
                     provider_config = {
                         'provider': 'ollama',
-                        'ollama_model': st.session_state.ollama_model
+                        'ollama_model': st.session_state.ollama_model,
+                        'ollama_host': st.session_state.ollama_host
                     }
                 
                 if st.session_state.enable_streaming and provider_config:
@@ -643,7 +657,8 @@ elif st.session_state.current_symbol:
             elif st.session_state.llm_provider == "ollama":
                 provider_config = {
                     'provider': 'ollama',
-                    'ollama_model': st.session_state.ollama_model
+                    'ollama_model': st.session_state.ollama_model,
+                    'ollama_host': st.session_state.ollama_host
                 }
             
             if st.session_state.enable_streaming and provider_config:
