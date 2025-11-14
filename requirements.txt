@@ -1,0 +1,12 @@
+streamlit
+yfinance
+openai
+python-dotenv
+ollama
+google-generativeai
+requests
+beautifulsoup4
+lxml
+pandas
+plotly
+
